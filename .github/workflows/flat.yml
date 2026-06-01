@@ -6,32 +6,44 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '10 */4 * * *'
+
+permissions:
+  contents: write
+
 jobs:
   scheduled:
     runs-on: ubuntu-latest
     steps:
       - name: checkout repo content
-        uses: actions/checkout@v3 # checkout the repository content to github runner.
+        uses: actions/checkout@v4
+
       - name: setup python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.12 #install the python needed
+          python-version: '3.12'
+
       - name: execute py script
         env:
           MS_TOKEN: ${{ secrets.MS_TOKEN }}
         run: |
+          set -e
+          if [ -z "$MS_TOKEN" ]; then
+            echo "ERROR: MS_TOKEN secret is missing. Add it in repo Settings > Secrets."
+            exit 1
+          fi
           export DISPLAY=:99
           sudo Xvfb -ac :99 -screen 0 1280x1024x24 > /dev/null 2>&1 &
-          python3.12 -m venv venv
+          python -m venv venv
           source venv/bin/activate
-          echo "VIRTUAL ENV:" $VIRTUAL_ENV
+          pip install --upgrade pip
           pip install playwright==1.40.0
           pip install -r requirements.txt
-          python -m playwright install
-          # playwright install-deps
+          python -m playwright install chromium
+          sudo python -m playwright install-deps chromium
           python postprocessing.py
+          test -f rss/talaytrang.xml || (echo "ERROR: rss/talaytrang.xml not created — check MS_TOKEN or TikTok access" && exit 1)
           git config user.name github-actions
           git config user.email github-actions@github.com
           git add .
-          git commit --allow-empty -m "Latest TikTok RSS"
+          git diff --staged --quiet || git commit -m "Latest TikTok RSS"
           git push
