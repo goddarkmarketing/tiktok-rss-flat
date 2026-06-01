@@ -99,7 +99,8 @@ async def user_videos():
                         #print(video)
                         #print(video.as_dict)
                 except Exception as e:
-                    print(e)
+                    print(f"ERROR for user {user}: {e}")
+                    raise
 
 
 if __name__ == "__main__":
